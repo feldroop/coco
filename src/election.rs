@@ -1,13 +1,13 @@
 use std::collections::{HashMap, HashSet};
 
 use http_body_util::{BodyExt, Full};
-use hyper::{Request, Response};
+use hyper::{Request, Response, body::Bytes};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
 
 use crate::{
     common::{
-        ResponseResult, bad_request_response, extract_requesting_participant, forbidden_response,
+        ResponseResult, bad_request_response, extract_requesting_participant,
         internal_error_response, ok_response, unauthorized_response,
     },
     participant::ParticipantId,
@@ -47,12 +47,12 @@ pub async fn get(
     to_central_state_authority_sender: mpsc::Sender<Message>,
 ) -> ResponseResult {
     let Some(requesting_participant) = extract_requesting_participant(&request) else {
-        return forbidden_response();
+        return unauthorized_response();
     };
 
     let (answer_sender, answer_receiver) = oneshot::channel();
     if let Err(e) = to_central_state_authority_sender
-        .send(Message::GetElections {
+        .send(Message::ElectionsGet {
             answer_sender,
             requesting_participant,
         })
@@ -71,8 +71,10 @@ pub async fn get(
     };
 
     match answer {
-        Some(body) => Response::builder().body(Full::new(body)),
-        None => unauthorized_response(),
+        Ok(body) => Response::builder().body(Full::new(body)),
+        Err(err) => Response::builder()
+            .status(err.http_status_code())
+            .body(Full::new(Bytes::from_owner(err.to_string()))),
     }
 }
 
@@ -81,7 +83,7 @@ pub async fn vote(
     to_central_state_authority_sender: mpsc::Sender<Message>,
 ) -> ResponseResult {
     let Some(requesting_participant) = extract_requesting_participant(&request) else {
-        return forbidden_response();
+        return unauthorized_response();
     };
 
     let body_bytes = match request.into_body().collect().await {
@@ -116,7 +118,7 @@ pub async fn vote(
         return internal_error_response();
     }
 
-    let successful = match answer_receiver.await {
+    let answer = match answer_receiver.await {
         Ok(body) => body,
         Err(e) => {
             error!("{e:?}");
@@ -124,9 +126,10 @@ pub async fn vote(
         }
     };
 
-    if successful {
-        ok_response()
-    } else {
-        bad_request_response()
+    match answer {
+        Ok(()) => ok_response(),
+        Err(err) => Response::builder()
+            .status(err.http_status_code())
+            .body(Full::new(Bytes::from_owner(err.to_string()))),
     }
 }

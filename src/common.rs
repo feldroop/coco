@@ -24,12 +24,6 @@ pub fn unauthorized_response() -> ResponseResult {
         .body(Full::new(Bytes::new()))
 }
 
-pub fn forbidden_response() -> ResponseResult {
-    Response::builder()
-        .status(StatusCode::FORBIDDEN)
-        .body(Full::new(Bytes::new()))
-}
-
 pub fn internal_error_response() -> ResponseResult {
     Response::builder()
         .status(StatusCode::INTERNAL_SERVER_ERROR)

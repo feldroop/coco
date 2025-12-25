@@ -7,6 +7,7 @@ use tracing::error;
 
 use crate::{
     election::{BallotItem, Election, ElectionId, ElectionsVoteBody},
+    error::{ElectionsVoteError, InvalidParticipantError},
     participant::{Participant, ParticipantId},
 };
 
@@ -17,39 +18,45 @@ pub struct State {
 }
 
 impl State {
-    fn participant_is_valid(&self, participant: &Participant) -> bool {
+    fn check_participant_validity(
+        &self,
+        participant: &Participant,
+    ) -> Result<(), InvalidParticipantError> {
         let Some(existing_participant) = self.participants_by_id.get(&participant.id) else {
-            return false;
+            return Err(InvalidParticipantError::Missing);
         };
 
-        existing_participant.token == participant.token
+        if existing_participant.token == participant.token {
+            Ok(())
+        } else {
+            Err(InvalidParticipantError::WrongToken)
+        }
     }
 
-    // TODO: better return type.
     fn apply_vote(
         &mut self,
         voting_participant: &Participant,
         elections_vote_body: &ElectionsVoteBody,
-    ) -> bool {
+    ) -> Result<(), ElectionsVoteError> {
         let Some(election) = self
             .elections_by_id
             .get_mut(&elections_vote_body.election_id)
         else {
-            return false;
+            return Err(ElectionsVoteError::MissingElection);
         };
 
         if election
             .participant_ids_who_voted
             .contains(&voting_participant.id)
         {
-            return false;
+            return Err(ElectionsVoteError::AlreadyVoted);
         }
 
         let Some(ballot_item) = election
             .ballot_items_by_id
             .get_mut(&elections_vote_body.selected_ballot_item_id)
         else {
-            return false;
+            return Err(ElectionsVoteError::MissingBallotItem);
         };
 
         ballot_item.num_votes += 1;
@@ -58,20 +65,20 @@ impl State {
             .participant_ids_who_voted
             .insert(voting_participant.id);
 
-        true
+        Ok(())
     }
 }
 
 pub enum Message {
-    AddParticipant {
+    ParticipantsGet {
         answer_sender: oneshot::Sender<Participant>,
     },
-    GetElections {
-        answer_sender: oneshot::Sender<Option<Bytes>>,
+    ElectionsGet {
+        answer_sender: oneshot::Sender<Result<Bytes, InvalidParticipantError>>,
         requesting_participant: Participant,
     },
     ElectionsVote {
-        answer_sender: oneshot::Sender<bool>,
+        answer_sender: oneshot::Sender<Result<(), ElectionsVoteError>>,
         requesting_participant: Participant,
         elections_vote_body: ElectionsVoteBody,
     },
@@ -109,7 +116,7 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
 
     while let Some(message) = message_receiver.recv().await {
         match message {
-            Message::AddParticipant { answer_sender } => {
+            Message::ParticipantsGet { answer_sender } => {
                 let id = state.participants_by_id.len();
                 let new_participant = Participant {
                     id,
@@ -121,20 +128,19 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
                     error!("Unexpected AddParticipant send answer error.");
                 }
             }
-            Message::GetElections {
+            Message::ElectionsGet {
                 answer_sender,
                 requesting_participant,
             } => {
-                let answer = if state.participant_is_valid(&requesting_participant) {
-                    let Ok(serialized) = serde_json::to_vec(&state.elections_by_id) else {
+                let answer =
+                    if let Err(err) = state.check_participant_validity(&requesting_participant) {
+                        Err(err)
+                    } else if let Ok(serialized) = serde_json::to_vec(&state.elections_by_id) {
+                        Ok(Bytes::from_owner(serialized))
+                    } else {
                         error!("Unexpected serialization error.");
-                        continue;
+                        Err(InvalidParticipantError::Unexpected)
                     };
-
-                    Some(Bytes::from_owner(serialized))
-                } else {
-                    None
-                };
 
                 if answer_sender.send(answer).is_err() {
                     error!("Unexpected GetElections send answer error.");
@@ -145,13 +151,18 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
                 requesting_participant,
                 elections_vote_body,
             } => {
-                if answer_sender
-                    .send(
-                        state.participant_is_valid(&requesting_participant)
-                            && state.apply_vote(&requesting_participant, &elections_vote_body),
-                    )
-                    .is_err()
-                {
+                let answer =
+                    if let Err(err) = state.check_participant_validity(&requesting_participant) {
+                        Err(err.into())
+                    } else if let Err(err) =
+                        state.apply_vote(&requesting_participant, &elections_vote_body)
+                    {
+                        Err(err)
+                    } else {
+                        Ok(())
+                    };
+
+                if answer_sender.send(answer).is_err() {
                     error!("Unexpected ElectionsVote send answer error.");
                 }
             }

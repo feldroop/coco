@@ -14,9 +14,15 @@ if (form) {
         })
 
         if (response.status === 401) {
-            document.getElementById("errorMessage")!.innerHTML = "Wrong password."
+            var errorMessageElement = document.getElementById("login-form-error-message")
+            if (errorMessageElement instanceof HTMLParagraphElement) {
+                errorMessageElement.innerHTML = "Wrong password."
+            }
         } else if (!response.ok) {
-            document.getElementById("errorMessage")!.innerHTML = "Unexpected error: " + response.status
+            var errorMessageElement = document.getElementById("login-form-error-message")
+            if (errorMessageElement instanceof HTMLParagraphElement) {
+                errorMessageElement.innerHTML = "Unexpected error: " + response.status
+            }
         } else {
             window.location.href = "/"
         }

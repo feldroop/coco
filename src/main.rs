@@ -1,5 +1,6 @@
 mod common;
 mod election;
+mod error;
 mod frontend;
 mod participant;
 mod state;

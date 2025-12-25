@@ -56,7 +56,7 @@ pub async fn add(
     let (answer_sender, answer_receiver) = oneshot::channel();
 
     if let Err(e) = to_central_state_authority_sender
-        .send(Message::AddParticipant { answer_sender })
+        .send(Message::ParticipantsGet { answer_sender })
         .await
     {
         error!("{e:?}");

@@ -1,23 +1,22 @@
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum FileKind {
-    Html,
-    Css,
-    Js,
-    JsMap,
-    Base64Ico,
-}
+use std::{collections::HashMap, sync::LazyLock};
 
-impl FileKind {
-    pub fn content_type(&self) -> &'static str {
-        match self {
-            FileKind::Html => "text/html; charset=utf-8",
-            FileKind::Css => "text/css; charset=utf-8",
-            FileKind::Js => "text/javascript; charset=utf-8",
-            FileKind::JsMap => "application/json; charset=utf-8",
-            FileKind::Base64Ico => "image/x-icon; base64",
-        }
-    }
-}
+const INCLUDE_SOURCEMAPS_AND_TS: bool = true;
+
+pub static FRONTEND_FILES: LazyLock<HashMap<&'static str, &'static FrontEndFile>> =
+    LazyLock::new(|| {
+        FILE_DATA
+            .iter()
+            .filter_map(|file_data| {
+                if !INCLUDE_SOURCEMAPS_AND_TS
+                    && (file_data.kind == FileKind::JsMap || file_data.kind == FileKind::Ts)
+                {
+                    None
+                } else {
+                    Some((file_data.path, file_data))
+                }
+            })
+            .collect()
+    });
 
 pub struct FrontEndFile {
     pub kind: FileKind,
@@ -26,7 +25,7 @@ pub struct FrontEndFile {
     pub content: &'static [u8],
 }
 
-pub const FILES: &[FrontEndFile] = &[
+const FILE_DATA: &[FrontEndFile] = &[
     FrontEndFile {
         kind: FileKind::Html,
         name: "index.html",
@@ -38,6 +37,12 @@ pub const FILES: &[FrontEndFile] = &[
         name: "index.js",
         path: "/index.js",
         content: include_bytes!("../frontend/out/index.js"),
+    },
+    FrontEndFile {
+        kind: FileKind::Ts,
+        name: "index.ts",
+        path: "/index.ts",
+        content: include_bytes!("../frontend/index.ts"),
     },
     FrontEndFile {
         kind: FileKind::JsMap,
@@ -58,15 +63,44 @@ pub const FILES: &[FrontEndFile] = &[
         content: include_bytes!("../frontend/out/login.js"),
     },
     FrontEndFile {
+        kind: FileKind::Ts,
+        name: "login.ts",
+        path: "/login.ts",
+        content: include_bytes!("../frontend/login.ts"),
+    },
+    FrontEndFile {
         kind: FileKind::JsMap,
         name: "login.js.map",
         path: "/login.js.map",
         content: include_bytes!("../frontend/out/login.js.map"),
     },
     FrontEndFile {
-        kind: FileKind::Base64Ico,
+        kind: FileKind::Ico,
         name: "favicon.ico",
         path: "/favicon.ico",
         content: include_bytes!("../frontend/assets/favicon.ico"),
     },
 ];
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum FileKind {
+    Html,
+    Css,
+    Js,
+    Ts,
+    JsMap,
+    Ico,
+}
+
+impl FileKind {
+    pub fn content_type(&self) -> &'static str {
+        match self {
+            FileKind::Html => "text/html; charset=utf-8",
+            FileKind::Css => "text/css; charset=utf-8",
+            FileKind::Js => "text/javascript; charset=utf-8",
+            FileKind::Ts => "text/typescript; charset=utf-8",
+            FileKind::JsMap => "application/json; charset=utf-8",
+            FileKind::Ico => "image/x-icon",
+        }
+    }
+}

@@ -2,15 +2,18 @@
 <html>
 
 <head>
-    <title>CoCo</title>
+    <title>coco - Elections</title>
+    <script async type="module" src="index.js"></script>
 </head>
 
 <body>
-    <h1>Welcome to CoCo!</h1>
+    <h1>Elections</h1>
 
-    <p>You are now logged in!</p>
-
-    <script type="module" src="index.js"></script>
+    <label for="election" id="election-label"></label>
+    <form id="election">
+        <fieldset id="ballot-items"></fieldset>
+        <input id="submit-election-vote" type="submit" value="Submit" disabled>
+    </form>
 </body>
 
 </html>

@@ -1,5 +1,7 @@
+mod common;
+mod election;
 mod frontend;
-mod participants;
+mod participant;
 mod state;
 
 use http_body_util::Full;
@@ -14,15 +16,12 @@ use tokio::task;
 use tracing::{error, info, warn};
 use tracing_subscriber::fmt::time;
 
-use std::collections::HashMap;
-use std::sync::atomic::Ordering;
 use std::{error::Error, net::SocketAddr};
 
-use state::{Message, NEXT_PARTICIPANT_ID, Participant, State};
+use state::Message;
 
-use crate::frontend::FileKind;
-
-const INCLUDE_SOURCEMAPS: bool = true;
+use crate::common::ResponseResult;
+use crate::frontend::FRONTEND_FILES;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let subscriber_builder = tracing_subscriber::fmt();
@@ -48,9 +47,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 async fn run_server() -> Result<(), Box<dyn Error>> {
     tracing::info!("Server runtime started");
 
-    let (message_sender, message_receiver) = mpsc::channel(512);
+    let (to_central_state_authority_sender, central_state_authority_receiver) = mpsc::channel(512);
 
-    tokio::spawn(central_state_authority(message_receiver));
+    tokio::spawn(state::central_state_authority(
+        central_state_authority_receiver,
+    ));
 
     let socket_address: SocketAddr = ([127, 0, 0, 1], 3030).into();
     let listener = TcpListener::bind(socket_address).await?;
@@ -58,82 +59,63 @@ async fn run_server() -> Result<(), Box<dyn Error>> {
     info!("Listening on http://{}", socket_address);
 
     loop {
-        let (tcp, address) = listener.accept().await?;
+        let (tcp_stream, address) = listener.accept().await?;
         info!("Accepted connection from: {}", address);
 
-        let io = TokioIo::new(tcp);
-        let message_sender = message_sender.clone();
+        let connection_io_stream = TokioIo::new(tcp_stream);
+        let to_central_state_authority_sender = to_central_state_authority_sender.clone();
 
         task::spawn(async move {
             let service = service_fn(|request| {
-                let message_sender = message_sender.clone();
-                handle_request(request, message_sender)
+                handle_request(request, to_central_state_authority_sender.clone())
             });
 
-            if let Err(err) = http1::Builder::new().serve_connection(io, service).await {
+            if let Err(err) = http1::Builder::new()
+                .serve_connection(connection_io_stream, service)
+                .await
+            {
                 error!("Error serving connection: {:?}", err);
             }
         });
     }
 }
 
-async fn central_state_authority(mut message_receiver: mpsc::Receiver<Message>) {
-    let mut state = State::default();
-
-    while let Some(message) = message_receiver.recv().await {
-        match message {
-            Message::AddParticipant { answer_sender } => {
-                let id = NEXT_PARTICIPANT_ID.fetch_add(1, Ordering::SeqCst);
-
-                let new_participant = state
-                    .participants
-                    .entry(id)
-                    .insert_entry(Participant { id });
-
-                answer_sender
-                    .send(new_participant.get().id)
-                    .expect("send answer");
-            }
-        }
-    }
-}
-
 async fn handle_request(
     request: Request<hyper::body::Incoming>,
-    message_sender: mpsc::Sender<Message>,
-) -> Result<Response<Full<Bytes>>, hyper::http::Error> {
+    to_central_state_authority_sender: mpsc::Sender<Message>,
+) -> ResponseResult {
     info!("Got request {:?}", request);
 
-    let frontend_files: HashMap<_, _> = frontend::FILES
-        .iter()
-        .filter_map(|file_data| {
-            if !INCLUDE_SOURCEMAPS && file_data.kind == FileKind::JsMap {
-                None
-            } else {
-                Some((file_data.path, file_data))
-            }
-        })
-        .collect();
-
     let result = match (request.method(), request.uri().path()) {
-        (&Method::GET, path) if frontend_files.contains_key(path) => {
-            let file_data = frontend_files[path];
+        (&Method::GET, path) if FRONTEND_FILES.contains_key(path) => {
+            let file_data = FRONTEND_FILES[path];
             Response::builder()
                 .header("Content-Type", file_data.kind.content_type())
                 .body(Full::new(Bytes::from(file_data.content)))
         }
-        (&Method::POST, "/participants/add") => participants::add(request, message_sender).await,
+        (&Method::POST, "/participants/add") => {
+            participant::add(request, to_central_state_authority_sender).await
+        }
+        (&Method::POST, "/elections/vote") => {
+            election::vote(request, to_central_state_authority_sender).await
+        }
+        (&Method::GET, "/elections") => {
+            election::get(request, to_central_state_authority_sender).await
+        }
         _ => {
             warn!("Unable to handle request");
-            let mut not_found =
-                Response::new(Full::new(Bytes::from("CoCo does not know this page.")));
-            *not_found.status_mut() = StatusCode::NOT_FOUND;
-            Ok(not_found)
+            Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Full::new(Bytes::from("CoCo does not know this page.")))
         }
     };
 
     if let Ok(response) = result.as_ref() {
-        info!("Sending response: {response:?}");
+        info!(
+            "Sending response: {:?} {:?}",
+            response.status(),
+            response.headers()
+        );
     }
 
     result

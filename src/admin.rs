@@ -10,23 +10,23 @@ use crate::{
     state::Message,
 };
 
-pub const PARTICIPANT_ID_COOKIE_KEY: &str = "coco_participant_id";
-pub const TOKEN_COOKIE_KEY: &str = "coco_token";
+pub const ADMIN_SESSION_ID_COOKIE_KEY: &str = "coco_admin_session_id";
+pub const ADMIN_TOKEN_COOKIE_KEY: &str = "coco_admin_token";
 
-pub type ParticipantId = usize;
+pub type AdminSessionId = usize;
 
-#[derive(Debug, serde::Serialize, Clone)]
-pub struct Participant {
-    pub id: usize,
+#[derive(Debug, Clone)]
+pub struct AdminSession {
+    pub id: AdminSessionId,
     pub token: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct AddParticipantBody {
+struct AdminLoginAttemptBody {
     password: String,
 }
 
-pub async fn add(
+pub async fn start_session(
     request: Request<hyper::body::Incoming>,
     to_central_state_authority_sender: mpsc::Sender<Message>,
 ) -> ResponseResult {
@@ -38,7 +38,7 @@ pub async fn add(
         }
     };
 
-    let body: AddParticipantBody = match serde_json::from_slice(&body_bytes) {
+    let body: AdminLoginAttemptBody = match serde_json::from_slice(&body_bytes) {
         Ok(body) => body,
         Err(e) => {
             warn!("Bad request: {e:?}");
@@ -48,23 +48,23 @@ pub async fn add(
 
     info!("{body:?}");
 
-    const PASSWORD: &str = "abc";
-    if body.password != PASSWORD {
+    const ADMIN_PASSWORD: &str = "abcd";
+    if body.password != ADMIN_PASSWORD {
         return unauthorized_response();
     }
 
     let (answer_sender, answer_receiver) = oneshot::channel();
 
     if let Err(e) = to_central_state_authority_sender
-        .send(Message::ParticipantsGet { answer_sender })
+        .send(Message::AdminStartSession { answer_sender })
         .await
     {
         error!("{e:?}");
         return internal_error_response();
     }
 
-    let new_participant = match answer_receiver.await {
-        Ok(new_participant) => new_participant,
+    let new_admin_session = match answer_receiver.await {
+        Ok(new_admin_session) => new_admin_session,
         Err(e) => {
             error!("{e:?}");
             return internal_error_response();
@@ -76,12 +76,15 @@ pub async fn add(
             SET_COOKIE,
             format!(
                 "{}={}; Path=/",
-                PARTICIPANT_ID_COOKIE_KEY, new_participant.id
+                ADMIN_SESSION_ID_COOKIE_KEY, new_admin_session.id
             ),
         )
         .header(
             SET_COOKIE,
-            format!("{}={}; Path=/", TOKEN_COOKIE_KEY, new_participant.token),
+            format!(
+                "{}={}; Path=/",
+                ADMIN_TOKEN_COOKIE_KEY, new_admin_session.token
+            ),
         )
         .status(StatusCode::CREATED)
         .body(Full::new(Bytes::new()))

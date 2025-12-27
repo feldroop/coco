@@ -1,3 +1,4 @@
+mod admin;
 mod common;
 mod election;
 mod error;
@@ -102,6 +103,9 @@ async fn handle_request(
         }
         (&Method::GET, "/elections") => {
             election::get(request, to_central_state_authority_sender).await
+        }
+        (&Method::POST, "/admin/start-session") => {
+            admin::start_session(request, to_central_state_authority_sender).await
         }
         _ => {
             warn!("Unable to handle request");

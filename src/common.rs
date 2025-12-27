@@ -2,7 +2,7 @@ use http_body_util::Full;
 use hyper::{Request, Response, StatusCode, body::Bytes, header::COOKIE};
 use tracing::warn;
 
-use crate::participant::{ACCESS_TOKEN_COOKIE_KEY, PARTICIPANT_ID_COOKIE_KEY, Participant};
+use crate::participant::{PARTICIPANT_ID_COOKIE_KEY, Participant, TOKEN_COOKIE_KEY};
 
 pub type ResponseResult = Result<Response<Full<Bytes>>, hyper::http::Error>;
 
@@ -60,8 +60,7 @@ pub fn extract_requesting_participant(
         return None;
     };
 
-    let Some(token) = get_cookie_value(cookie.as_bytes(), ACCESS_TOKEN_COOKIE_KEY.as_bytes())
-    else {
+    let Some(token) = get_cookie_value(cookie.as_bytes(), TOKEN_COOKIE_KEY.as_bytes()) else {
         warn!(
             "Missing token cookie in GetElections request. Cookie header: \"{:?}\"",
             str::from_utf8(cookie.as_bytes())

@@ -1,4 +1,4 @@
-const isLoggedIn = document.cookie.split(';').some(c => c.trim().startsWith("coco_access_token"))
+const isLoggedIn = document.cookie.split(';').some(c => c.trim().startsWith("coco_token"))
 
 if (!isLoggedIn) {
     window.location.href = "/login"

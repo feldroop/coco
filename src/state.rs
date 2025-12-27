@@ -6,6 +6,7 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::error;
 
 use crate::{
+    admin::{AdminSession, AdminSessionId},
     election::{BallotItem, Election, ElectionId, ElectionsVoteBody},
     error::{ElectionsVoteError, InvalidParticipantError},
     participant::{Participant, ParticipantId},
@@ -15,6 +16,7 @@ use crate::{
 pub struct State {
     participants_by_id: HashMap<ParticipantId, Participant>,
     elections_by_id: HashMap<ElectionId, Election>,
+    admin_sessions_by_id: HashMap<AdminSessionId, AdminSession>,
 }
 
 impl State {
@@ -81,6 +83,9 @@ pub enum Message {
         answer_sender: oneshot::Sender<Result<(), ElectionsVoteError>>,
         requesting_participant: Participant,
         elections_vote_body: ElectionsVoteBody,
+    },
+    AdminStartSession {
+        answer_sender: oneshot::Sender<AdminSession>,
     },
 }
 
@@ -199,6 +204,20 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
 
                 if answer_sender.send(answer).is_err() {
                     error!("Unexpected ElectionsVote send answer error.");
+                }
+            }
+            Message::AdminStartSession { answer_sender } => {
+                let id = state.admin_sessions_by_id.len();
+                let new_admin_session = AdminSession {
+                    id,
+                    token: generate_token(),
+                };
+                state
+                    .admin_sessions_by_id
+                    .insert(id, new_admin_session.clone());
+
+                if answer_sender.send(new_admin_session).is_err() {
+                    error!("Unexpected AdminStartSession send answer error.");
                 }
             }
         }

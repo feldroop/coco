@@ -20,9 +20,7 @@ try {
 
     if (electionsResponse.ok) {
         const electionsById: Record<number, Election> = await electionsResponse.json()
-        const electionId = 0;
-        const election = electionsById[electionId]!
-        createElectionForm(election)
+        Object.entries(electionsById).sort().map(([_, value]) => value).forEach(createElectionForm)
     } else if (electionsResponse.status === 401) {
         window.location.href = "/login"
     } else {
@@ -33,94 +31,117 @@ try {
     }
 } catch (error) {
     console.error("Error fetching or parsing for elections:", error)
-    var errorMessageElement = document.getElementById("election-form-error-message")
+    var errorMessageElement = document.getElementById("elections-error-message")
     if (errorMessageElement instanceof HTMLParagraphElement) {
         errorMessageElement.innerHTML = "Error: could not load election data."
     }
 }
 
 function createElectionForm(election: Election) {
-    var electionLabel = document.getElementById("election-label")
-    if (electionLabel instanceof HTMLLabelElement) {
-        electionLabel.textContent = election.name
-    }
-
-    const form = document.forms.namedItem("election")
-    const ballotItemFieldset = document.getElementById("ballot-items")
-
-    if (form && ballotItemFieldset) {
-        Object.values(election.ballotItemsById).forEach((ballotItem) => {
-            const ballotItemInputId = `ballot-item-${ballotItem.id}`
+    var electionsDiv = document.getElementById("elections")
     
-            var ballotItemInput = document.createElement("input")
-            ballotItemInput.type = "radio"
-            ballotItemInput.id = ballotItemInputId
-            ballotItemInput.value = ballotItem.id.toString()
-            ballotItemInput.name = "selectedBallotItemId"
-            ballotItemInput.addEventListener("change", () => {
-                var submitButton = document.getElementById("submit-election-vote")
+    const electionFormId = `election-${election.id}`
     
-                if (submitButton instanceof HTMLInputElement) {
-                    submitButton.disabled = false
-                }
-            })
+    var electionLabel = document.createElement("label")
+    electionLabel.htmlFor = electionFormId
+    electionLabel.textContent = election.name
+    electionsDiv?.appendChild(electionLabel)
     
-            var label = document.createElement("label")
-            label.textContent = ballotItem.name
-            label.htmlFor = ballotItemInputId
-    
-            ballotItemFieldset.appendChild(ballotItemInput)
-            ballotItemFieldset.appendChild(label)
-            ballotItemFieldset.appendChild(document.createElement("br"))
-        })
+    var electionForm = document.createElement("form")
+    electionForm.id = electionFormId
+    electionsDiv?.appendChild(electionForm)
 
-        var electionIdElement = document.createElement("input")
-        electionIdElement.type = "hidden"
-        electionIdElement.name = "electionId"
-        electionIdElement.value = election.id.toString()
-        form.appendChild(electionIdElement)
+    const submitButtonId = `election-${election.id}-submit`
+    const radioButtonGroupName = `election-${election.id}-selected-ballot-item-id`
 
-        form.addEventListener("submit", async (event) => {
-            event.preventDefault()
+    Object.entries(election.ballotItemsById).sort().map(([_, value]) => value).forEach((ballotItem) => {
+        const ballotItemInputId = `election-${election.id}-ballot-item-${ballotItem.id}`
 
-            const data = new FormData(form)
-            const dataObject = Object.fromEntries(data)
-            const dataParsed = {
-                electionId: Number(dataObject["electionId"]),
-                selectedBallotItemId: Number(dataObject["selectedBallotItemId"]),
-            }
+        var ballotItemInput = document.createElement("input")
+        ballotItemInput.type = "radio"
+        ballotItemInput.id = ballotItemInputId
+        ballotItemInput.value = ballotItem.id.toString()
+        ballotItemInput.name = radioButtonGroupName
+        ballotItemInput.addEventListener("change", () => {
+            var submitButton = document.getElementById(submitButtonId)
 
-            const response = await fetch("/elections/vote", {
-                method: "POST",
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(dataParsed)
-            })
-
-            if (response.ok || response.status === 403) {
-                const radioButtons = form.querySelectorAll("input") as NodeListOf<HTMLInputElement>
-                for (var radioButton of radioButtons.values()) {
-                    radioButton.disabled = true
-                }
-            }
-            
-            if (response.status === 401) {
-                window.location.href = "/login"
-            } else if ([403, 404, 500].includes(response.status)) {
-                var errorMessageElement = document.getElementById("election-form-error-message")
-                if (errorMessageElement instanceof HTMLParagraphElement) {
-                    const responseText = await response.text()
-                    errorMessageElement.innerHTML = "Error: " + responseText
-                }
-            } else if (!response.ok) {
-                var errorMessageElement = document.getElementById("election-form-error-message")
-                if (errorMessageElement instanceof HTMLParagraphElement) {
-                    errorMessageElement.innerHTML = "Unexpected error: " + response.status   
-                }
+            if (submitButton instanceof HTMLInputElement) {
+                submitButton.disabled = false
             }
         })
-    }
+
+        var label = document.createElement("label")
+        label.textContent = ballotItem.name
+        label.htmlFor = ballotItemInputId
+
+        electionForm.appendChild(ballotItemInput)
+        electionForm.appendChild(label)
+        electionForm.appendChild(document.createElement("br"))
+    })
+
+    var electionIdHiddenInput = document.createElement("input")
+    electionIdHiddenInput.type = "hidden"
+    electionIdHiddenInput.name = "election-id"
+    electionIdHiddenInput.value = election.id.toString()
+    electionForm.appendChild(electionIdHiddenInput)
+
+    var submitButton = document.createElement("input")
+    submitButton.id = submitButtonId
+    submitButton.type = "submit"
+    submitButton.value = "Submit"
+    submitButton.disabled = true
+    electionForm.appendChild(submitButton)
+
+    var electionMessageElementId = `election-${election.id}-message`
+    var electionMessageElement = document.createElement("p")
+    electionMessageElement.id = electionMessageElementId
+    electionForm.appendChild(electionMessageElement)
+
+    electionForm.addEventListener("submit", async (event) => {
+        event.preventDefault()
+
+        const data = new FormData(electionForm)
+        const dataObject = Object.fromEntries(data)
+        const dataParsed = {
+            electionId: Number(dataObject["election-id"]),
+            selectedBallotItemId: Number(dataObject[radioButtonGroupName]),
+        }
+
+        const response = await fetch("/elections/vote", {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dataParsed)
+        })
+
+        if (response.ok || response.status === 403) {
+            const inputElements = electionForm.querySelectorAll("input") as NodeListOf<HTMLInputElement>
+            for (var inputElement of inputElements.values()) {
+                inputElement.disabled = true
+            }
+        }
+        
+        if (response.ok) {
+            var errorMessageElement = document.getElementById(electionMessageElementId)
+            if (errorMessageElement instanceof HTMLParagraphElement) {
+                errorMessageElement.innerHTML = "Voting successful." 
+            }
+        } else if (response.status === 401) {
+            window.location.href = "/login"
+        } else if ([403, 404, 500].includes(response.status)) {
+            var errorMessageElement = document.getElementById(electionMessageElementId)
+            if (errorMessageElement instanceof HTMLParagraphElement) {
+                const responseText = await response.text()
+                errorMessageElement.innerHTML = "Error: " + responseText
+            }
+        } else if (!response.ok) {
+            var errorMessageElement = document.getElementById(electionMessageElementId)
+            if (errorMessageElement instanceof HTMLParagraphElement) {
+                errorMessageElement.innerHTML = "Unexpected error: " + response.status   
+            }
+        }
+    })
 }
 
 // function getCookie(key: string): string | undefined {

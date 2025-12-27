@@ -114,6 +114,41 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
         },
     );
 
+    state.elections_by_id.insert(
+        1,
+        Election {
+            id: 1,
+            name: String::from("What is your favorite color?"),
+            ballot_items_by_id: HashMap::from([
+                (
+                    0,
+                    BallotItem {
+                        id: 0,
+                        name: String::from("Red"),
+                        num_votes: 0,
+                    },
+                ),
+                (
+                    1,
+                    BallotItem {
+                        id: 1,
+                        name: String::from("Green"),
+                        num_votes: 0,
+                    },
+                ),
+                (
+                    2,
+                    BallotItem {
+                        id: 2,
+                        name: String::from("Blue"),
+                        num_votes: 0,
+                    },
+                ),
+            ]),
+            participant_ids_who_voted: HashSet::new(),
+        },
+    );
+
     while let Some(message) = message_receiver.recv().await {
         match message {
             Message::ParticipantsGet { answer_sender } => {

@@ -1,3 +1,3 @@
-# CoCo - Convenient Conventions
+# coco - Convenient Conventions
 
 Coming soon!

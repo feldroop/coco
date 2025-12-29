@@ -7,26 +7,28 @@ if (!isLoggedIn) {
 }
 
 var addBallotItemButton = document.getElementById("add-ballot-item");
-var ballotItemsFieldset = document.getElementById("ballot-items");
+var ballotItemsListElement = document.getElementById("ballot-items");
 var ballotItemId = 0;
 
 addBallotItemButton?.addEventListener("click", (event) => {
   event.preventDefault();
 
-  const ballotItemInputId = `ballot-item-input-${ballotItemId}`;
-
-  var ballotItemInputLabel = document.createElement("label");
-  ballotItemInputLabel.htmlFor = ballotItemInputId;
-  ballotItemInputLabel.innerHTML = `${ballotItemId + 1}. `;
+  var listItem = document.createElement("li");
+  ballotItemsListElement?.appendChild(listItem);
 
   var ballotItemInput = document.createElement("input");
   ballotItemInput.type = "text";
   ballotItemInput.name = `ballot-item-${ballotItemId.toString()}`;
-  ballotItemInput.id = ballotItemInputId;
 
-  ballotItemsFieldset?.appendChild(ballotItemInputLabel);
-  ballotItemsFieldset?.appendChild(ballotItemInput);
-  ballotItemsFieldset?.appendChild(document.createElement("br"));
+  var deleteBallotItemButton = document.createElement("button");
+  deleteBallotItemButton.innerText = "Delete";
+  deleteBallotItemButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    listItem.remove();
+  });
+
+  listItem.appendChild(ballotItemInput);
+  listItem.appendChild(deleteBallotItemButton);
 
   ballotItemInput.select();
 

@@ -86,7 +86,11 @@ async fn handle_request(
     request: Request<hyper::body::Incoming>,
     to_central_state_authority_sender: mpsc::Sender<Message>,
 ) -> ResponseResult {
-    info!("Got request {:?}", request);
+    info!(
+        "Incoming request - {} {}",
+        request.method(),
+        request.uri().path()
+    );
 
     let result = match (request.method(), request.uri().path()) {
         (&Method::GET, path) if FRONTEND_FILES.contains_key(path) => {

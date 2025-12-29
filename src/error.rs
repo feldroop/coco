@@ -1,7 +1,7 @@
 use hyper::StatusCode;
 
 #[derive(Debug, thiserror::Error)]
-pub enum InvalidParticipantError {
+pub enum InvalidSessionError {
     #[error("You need to log in first.")]
     Missing,
     #[error("The supplied login token for this participant is wrong.")]
@@ -10,12 +10,12 @@ pub enum InvalidParticipantError {
     Unexpected,
 }
 
-impl InvalidParticipantError {
+impl InvalidSessionError {
     pub fn http_status_code(&self) -> StatusCode {
         match self {
-            InvalidParticipantError::Missing => StatusCode::UNAUTHORIZED,
-            InvalidParticipantError::WrongToken => StatusCode::UNAUTHORIZED,
-            InvalidParticipantError::Unexpected => StatusCode::INTERNAL_SERVER_ERROR,
+            InvalidSessionError::Missing => StatusCode::UNAUTHORIZED,
+            InvalidSessionError::WrongToken => StatusCode::UNAUTHORIZED,
+            InvalidSessionError::Unexpected => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -23,7 +23,7 @@ impl InvalidParticipantError {
 #[derive(Debug, thiserror::Error)]
 pub enum ElectionsVoteError {
     #[error("{0}")]
-    InvalidParticipant(#[from] InvalidParticipantError),
+    InvalidParticipant(#[from] InvalidSessionError),
     #[error("The election was deleted by the administrator.")]
     MissingElection,
     #[error("You already voted.")]

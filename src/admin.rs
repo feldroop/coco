@@ -5,7 +5,8 @@ use tracing::{error, info, warn};
 
 use crate::{
     common::{
-        ResponseResult, bad_request_response, internal_error_response, unauthorized_response,
+        ResponseResult, bad_request_response, extract_requesting_admin_session,
+        internal_error_response, ok_response, unauthorized_response,
     },
     state::Message,
 };
@@ -24,6 +25,13 @@ pub struct AdminSession {
 #[derive(Debug, serde::Deserialize)]
 struct AdminLoginAttemptBody {
     password: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminCreateElectionBody {
+    pub name: String,
+    pub ballot_items: Vec<String>,
 }
 
 pub async fn start_session(
@@ -75,17 +83,68 @@ pub async fn start_session(
         .header(
             SET_COOKIE,
             format!(
-                "{}={}; Path=/",
+                "{}={}; Path=/admin",
                 ADMIN_SESSION_ID_COOKIE_KEY, new_admin_session.id
             ),
         )
         .header(
             SET_COOKIE,
             format!(
-                "{}={}; Path=/",
+                "{}={}; Path=/admin",
                 ADMIN_TOKEN_COOKIE_KEY, new_admin_session.token
             ),
         )
         .status(StatusCode::CREATED)
         .body(Full::new(Bytes::new()))
+}
+
+pub async fn create_election(
+    request: Request<hyper::body::Incoming>,
+    to_central_state_authority_sender: mpsc::Sender<Message>,
+) -> ResponseResult {
+    let Some(requesting_admin_session) = extract_requesting_admin_session(&request) else {
+        return unauthorized_response();
+    };
+
+    let body_bytes = match request.into_body().collect().await {
+        Ok(collected) => collected.to_bytes(),
+        Err(e) => {
+            error!("{e:?}");
+            return internal_error_response();
+        }
+    };
+
+    let body: AdminCreateElectionBody = match serde_json::from_slice(&body_bytes) {
+        Ok(body) => body,
+        Err(e) => {
+            warn!("Bad request: {e:?}");
+            return bad_request_response();
+        }
+    };
+
+    info!("{body:?}");
+
+    let (answer_sender, answer_receiver) = oneshot::channel();
+
+    if let Err(e) = to_central_state_authority_sender
+        .send(Message::AdminCreateElection {
+            answer_sender,
+            requesting_admin_session,
+            admin_create_election_body: body,
+        })
+        .await
+    {
+        error!("{e:?}");
+        return internal_error_response();
+    }
+
+    match answer_receiver.await {
+        Ok(_) => (),
+        Err(e) => {
+            error!("{e:?}");
+            return internal_error_response();
+        }
+    };
+
+    ok_response()
 }

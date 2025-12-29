@@ -1,14 +1,32 @@
 <!DOCTYPE html>
 <html>
-
-<head>
+  <head>
     <title>coco - Admin</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script async type="module" src="admin/index.js"></script>
-</head>
+  </head>
 
-<body>
-    <h1>Welcome, admin!</h1>
-</body>
+  <body>
+    <h1>coco admin page</h1>
 
+    <h2>Create a new election:</h2>
+
+    <form id="create-election-form">
+      <label for="election-name">Election name: </label>
+      <input id="election-name" name="name" type="text" />
+      <br />
+
+      <fieldset id="ballot-items"></fieldset>
+
+      <button id="add-ballot-item">Add ballot item</button>
+      <br />
+
+      <input type="submit" value="Submit" />
+      <br />
+
+      <p id="create-election-form-message"></p>
+    </form>
+
+    <h2>Current Elections:</h2>
+  </body>
 </html>

@@ -6,9 +6,9 @@ use tokio::sync::{mpsc, oneshot};
 use tracing::error;
 
 use crate::{
-    admin::{AdminSession, AdminSessionId},
+    admin::{AdminCreateElectionBody, AdminSession, AdminSessionId},
     election::{BallotItem, Election, ElectionId, ElectionsVoteBody},
-    error::{ElectionsVoteError, InvalidParticipantError},
+    error::{ElectionsVoteError, InvalidSessionError},
     participant::{Participant, ParticipantId},
 };
 
@@ -20,18 +20,19 @@ pub struct State {
 }
 
 impl State {
+    // TODO: parse, not validate
     fn check_participant_validity(
         &self,
         participant: &Participant,
-    ) -> Result<(), InvalidParticipantError> {
+    ) -> Result<(), InvalidSessionError> {
         let Some(existing_participant) = self.participants_by_id.get(&participant.id) else {
-            return Err(InvalidParticipantError::Missing);
+            return Err(InvalidSessionError::Missing);
         };
 
         if existing_participant.token == participant.token {
             Ok(())
         } else {
-            Err(InvalidParticipantError::WrongToken)
+            Err(InvalidSessionError::WrongToken)
         }
     }
 
@@ -69,6 +70,22 @@ impl State {
 
         Ok(())
     }
+
+    // TODO: parse, not validate
+    fn check_admin_session_validity(
+        &self,
+        admin_session: &AdminSession,
+    ) -> Result<(), InvalidSessionError> {
+        let Some(existing_admin_session) = self.admin_sessions_by_id.get(&admin_session.id) else {
+            return Err(InvalidSessionError::Missing);
+        };
+
+        if existing_admin_session.token == admin_session.token {
+            Ok(())
+        } else {
+            Err(InvalidSessionError::WrongToken)
+        }
+    }
 }
 
 pub enum Message {
@@ -76,7 +93,7 @@ pub enum Message {
         answer_sender: oneshot::Sender<Participant>,
     },
     ElectionsGet {
-        answer_sender: oneshot::Sender<Result<Bytes, InvalidParticipantError>>,
+        answer_sender: oneshot::Sender<Result<Bytes, InvalidSessionError>>,
         requesting_participant: Participant,
     },
     ElectionsVote {
@@ -86,6 +103,11 @@ pub enum Message {
     },
     AdminStartSession {
         answer_sender: oneshot::Sender<AdminSession>,
+    },
+    AdminCreateElection {
+        answer_sender: oneshot::Sender<Result<(), InvalidSessionError>>,
+        requesting_admin_session: AdminSession,
+        admin_create_election_body: AdminCreateElectionBody,
     },
 }
 
@@ -155,7 +177,7 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
     );
 
     while let Some(message) = message_receiver.recv().await {
-        match message {
+        let answer_send_is_err = match message {
             Message::ParticipantsGet { answer_sender } => {
                 let id = state.participants_by_id.len();
                 let new_participant = Participant {
@@ -164,9 +186,7 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
                 };
                 state.participants_by_id.insert(id, new_participant.clone());
 
-                if answer_sender.send(new_participant).is_err() {
-                    error!("Unexpected AddParticipant send answer error.");
-                }
+                answer_sender.send(new_participant).is_err()
             }
             Message::ElectionsGet {
                 answer_sender,
@@ -179,12 +199,10 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
                         Ok(Bytes::from_owner(serialized))
                     } else {
                         error!("Unexpected serialization error.");
-                        Err(InvalidParticipantError::Unexpected)
+                        Err(InvalidSessionError::Unexpected)
                     };
 
-                if answer_sender.send(answer).is_err() {
-                    error!("Unexpected GetElections send answer error.");
-                }
+                answer_sender.send(answer).is_err()
             }
             Message::ElectionsVote {
                 answer_sender,
@@ -202,9 +220,7 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
                         Ok(())
                     };
 
-                if answer_sender.send(answer).is_err() {
-                    error!("Unexpected ElectionsVote send answer error.");
-                }
+                answer_sender.send(answer).is_err()
             }
             Message::AdminStartSession { answer_sender } => {
                 let id = state.admin_sessions_by_id.len();
@@ -216,10 +232,52 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
                     .admin_sessions_by_id
                     .insert(id, new_admin_session.clone());
 
-                if answer_sender.send(new_admin_session).is_err() {
-                    error!("Unexpected AdminStartSession send answer error.");
-                }
+                answer_sender.send(new_admin_session).is_err()
             }
+            Message::AdminCreateElection {
+                answer_sender,
+                admin_create_election_body,
+                requesting_admin_session: admin_session,
+            } => {
+                let answer = if let Err(err) = state.check_admin_session_validity(&admin_session) {
+                    Err(err)
+                } else {
+                    let id = state.elections_by_id.len();
+                    let name = admin_create_election_body.name;
+                    let ballot_items_by_id = admin_create_election_body
+                        .ballot_items
+                        .into_iter()
+                        .enumerate()
+                        .map(|(id, name)| {
+                            (
+                                id,
+                                BallotItem {
+                                    id,
+                                    name,
+                                    num_votes: 0,
+                                },
+                            )
+                        })
+                        .collect();
+
+                    let new_election = Election {
+                        id,
+                        name,
+                        ballot_items_by_id,
+                        participant_ids_who_voted: HashSet::new(),
+                    };
+
+                    state.elections_by_id.insert(id, new_election);
+
+                    Ok(())
+                };
+
+                answer_sender.send(answer).is_err()
+            }
+        };
+
+        if answer_send_is_err {
+            error!("Unexpected send answer error.");
         }
     }
 }

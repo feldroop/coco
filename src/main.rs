@@ -107,6 +107,9 @@ async fn handle_request(
         (&Method::POST, "/admin/start-session") => {
             admin::start_session(request, to_central_state_authority_sender).await
         }
+        (&Method::POST, "/admin/create-election") => {
+            admin::create_election(request, to_central_state_authority_sender).await
+        }
         _ => {
             warn!("Unable to handle request");
             Response::builder()

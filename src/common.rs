@@ -44,7 +44,10 @@ pub fn get_cookie_value<'a>(cookie: &'a [u8], key: &[u8]) -> Option<&'a str> {
 pub fn extract_requesting_participant(
     request: &Request<hyper::body::Incoming>,
 ) -> Option<Participant> {
-    let cookie = &request.headers()[COOKIE];
+    let Some(cookie) = &request.headers().get(COOKIE) else {
+        warn!("Missing cookie header in request.");
+        return None;
+    };
 
     let Some(id_str) = get_cookie_value(cookie.as_bytes(), PARTICIPANT_ID_COOKIE_KEY.as_bytes())
     else {
@@ -80,7 +83,10 @@ pub fn extract_requesting_participant(
 pub fn extract_requesting_admin_session(
     request: &Request<hyper::body::Incoming>,
 ) -> Option<AdminSession> {
-    let cookie = &request.headers()[COOKIE];
+    let Some(cookie) = &request.headers().get(COOKIE) else {
+        warn!("Missing cookie header in admin request.");
+        return None;
+    };
 
     let Some(id_str) = get_cookie_value(cookie.as_bytes(), ADMIN_SESSION_ID_COOKIE_KEY.as_bytes())
     else {

@@ -138,13 +138,18 @@ pub async fn create_election(
         return internal_error_response();
     }
 
-    match answer_receiver.await {
-        Ok(_) => (),
+    let answer = match answer_receiver.await {
+        Ok(answer) => answer,
         Err(e) => {
             error!("{e:?}");
             return internal_error_response();
         }
     };
 
-    ok_response()
+    match answer {
+        Ok(()) => ok_response(),
+        Err(err) => Response::builder()
+            .status(err.http_status_code())
+            .body(Full::new(Bytes::from_owner(err.to_string()))),
+    }
 }

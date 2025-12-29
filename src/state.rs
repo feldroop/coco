@@ -86,6 +86,21 @@ impl State {
             Err(InvalidSessionError::WrongToken)
         }
     }
+
+    // TODO: parse, not validate
+    fn check_credentials(
+        &self,
+        requesting_credentials: &RequestingCredentials,
+    ) -> Result<(), InvalidSessionError> {
+        match requesting_credentials {
+            RequestingCredentials::Normal(participant) => {
+                self.check_participant_validity(participant)
+            }
+            RequestingCredentials::Admin(admin_session) => {
+                self.check_admin_session_validity(admin_session)
+            }
+        }
+    }
 }
 
 pub enum Message {
@@ -94,7 +109,7 @@ pub enum Message {
     },
     ElectionsGet {
         answer_sender: oneshot::Sender<Result<Bytes, InvalidSessionError>>,
-        requesting_participant: Participant,
+        requesting_credentials: RequestingCredentials,
     },
     ElectionsVote {
         answer_sender: oneshot::Sender<Result<(), ElectionsVoteError>>,
@@ -109,6 +124,11 @@ pub enum Message {
         requesting_admin_session: AdminSession,
         admin_create_election_body: AdminCreateElectionBody,
     },
+}
+
+pub enum RequestingCredentials {
+    Normal(Participant),
+    Admin(AdminSession),
 }
 
 pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Message>) {
@@ -190,17 +210,16 @@ pub async fn central_state_authority(mut message_receiver: mpsc::Receiver<Messag
             }
             Message::ElectionsGet {
                 answer_sender,
-                requesting_participant,
+                requesting_credentials,
             } => {
-                let answer =
-                    if let Err(err) = state.check_participant_validity(&requesting_participant) {
-                        Err(err)
-                    } else if let Ok(serialized) = serde_json::to_vec(&state.elections_by_id) {
-                        Ok(Bytes::from_owner(serialized))
-                    } else {
-                        error!("Unexpected serialization error.");
-                        Err(InvalidSessionError::Unexpected)
-                    };
+                let answer = if let Err(err) = state.check_credentials(&requesting_credentials) {
+                    Err(err)
+                } else if let Ok(serialized) = serde_json::to_vec(&state.elections_by_id) {
+                    Ok(Bytes::from_owner(serialized))
+                } else {
+                    error!("Unexpected serialization error.");
+                    Err(InvalidSessionError::Unexpected)
+                };
 
                 answer_sender.send(answer).is_err()
             }

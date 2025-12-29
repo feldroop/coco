@@ -7,8 +7,9 @@ use tracing::{error, info, warn};
 
 use crate::{
     common::{
-        ResponseResult, bad_request_response, extract_requesting_participant,
-        internal_error_response, ok_response, unauthorized_response,
+        ResponseResult, bad_request_response, extract_requesting_credentials,
+        extract_requesting_participant, internal_error_response, ok_response,
+        unauthorized_response,
     },
     participant::ParticipantId,
     state::Message,
@@ -46,7 +47,7 @@ pub async fn get(
     request: Request<hyper::body::Incoming>,
     to_central_state_authority_sender: mpsc::Sender<Message>,
 ) -> ResponseResult {
-    let Some(requesting_participant) = extract_requesting_participant(&request) else {
+    let Some(requesting_credentials) = extract_requesting_credentials(&request) else {
         return unauthorized_response();
     };
 
@@ -54,7 +55,7 @@ pub async fn get(
     if let Err(e) = to_central_state_authority_sender
         .send(Message::ElectionsGet {
             answer_sender,
-            requesting_participant,
+            requesting_credentials,
         })
         .await
     {

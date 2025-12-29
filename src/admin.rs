@@ -83,14 +83,14 @@ pub async fn start_session(
         .header(
             SET_COOKIE,
             format!(
-                "{}={}; Path=/admin",
+                "{}={}; Path=/",
                 ADMIN_SESSION_ID_COOKIE_KEY, new_admin_session.id
             ),
         )
         .header(
             SET_COOKIE,
             format!(
-                "{}={}; Path=/admin",
+                "{}={}; Path=/",
                 ADMIN_TOKEN_COOKIE_KEY, new_admin_session.token
             ),
         )

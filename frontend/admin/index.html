@@ -1,32 +1,36 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>coco - Admin</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script async type="module" src="admin/index.js"></script>
-  </head>
+    <head>
+        <title>coco - Admin</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script async type="module" src="admin/index.js"></script>
+    </head>
 
-  <body>
-    <h1>coco admin page</h1>
+    <body>
+        <h1>coco admin page</h1>
 
-    <h2>Create a new election:</h2>
+        <h2>Create a new election:</h2>
 
-    <form id="create-election-form">
-      <label for="election-name">Election name: </label>
-      <input id="election-name" name="name" type="text" />
-      <br />
+        <form id="create-election-form">
+            <label for="election-name">Election name: </label>
+            <input id="election-name" name="name" type="text" />
+            <br />
 
-      <ol id="ballot-items"></ol>
+            <ol id="ballot-items"></ol>
 
-      <button id="add-ballot-item">Add ballot item</button>
-      <br />
+            <button id="add-ballot-item">Add ballot item</button>
+            <br />
 
-      <input type="submit" value="Submit" />
-      <br />
+            <input type="submit" value="Submit" />
+            <br />
 
-      <p id="create-election-form-message"></p>
-    </form>
+            <p id="create-election-form-message"></p>
+        </form>
 
-    <h2>Current Elections:</h2>
-  </body>
+        <h2>Current Elections:</h2>
+
+        <div id="elections"></div>
+
+        <p id="elections-error-message"></p>
+    </body>
 </html>

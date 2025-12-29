@@ -5,6 +5,7 @@ use tracing::warn;
 use crate::{
     admin::{ADMIN_SESSION_ID_COOKIE_KEY, ADMIN_TOKEN_COOKIE_KEY, AdminSession},
     participant::{PARTICIPANT_ID_COOKIE_KEY, Participant, TOKEN_COOKIE_KEY},
+    state::RequestingCredentials,
 };
 
 pub type ResponseResult = Result<Response<Full<Bytes>>, hyper::http::Error>;
@@ -84,14 +85,14 @@ pub fn extract_requesting_admin_session(
     request: &Request<hyper::body::Incoming>,
 ) -> Option<AdminSession> {
     let Some(cookie) = &request.headers().get(COOKIE) else {
-        warn!("Missing cookie header in admin request.");
+        warn!("Missing cookie header in possibly admin request.");
         return None;
     };
 
     let Some(id_str) = get_cookie_value(cookie.as_bytes(), ADMIN_SESSION_ID_COOKIE_KEY.as_bytes())
     else {
         warn!(
-            "Missing id cookie in admin request. Cookie header: \"{:?}\"",
+            "Missing id cookie in possibly admin request. Cookie header: \"{:?}\"",
             str::from_utf8(cookie.as_bytes())
         );
         return None;
@@ -99,7 +100,7 @@ pub fn extract_requesting_admin_session(
 
     let Ok(id) = id_str.parse() else {
         warn!(
-            "Malformed id cookie in admin request. Cookie header: \"{:?}\"",
+            "Malformed id cookie in possibly admin request. Cookie header: \"{:?}\"",
             str::from_utf8(cookie.as_bytes())
         );
         return None;
@@ -107,7 +108,7 @@ pub fn extract_requesting_admin_session(
 
     let Some(token) = get_cookie_value(cookie.as_bytes(), ADMIN_TOKEN_COOKIE_KEY.as_bytes()) else {
         warn!(
-            "Missing token cookie in admin request. Cookie header: \"{:?}\"",
+            "Missing token cookie in possibly admin request. Cookie header: \"{:?}\"",
             str::from_utf8(cookie.as_bytes())
         );
         return None;
@@ -117,4 +118,12 @@ pub fn extract_requesting_admin_session(
         id,
         token: token.to_string(),
     })
+}
+
+pub fn extract_requesting_credentials(
+    request: &Request<hyper::body::Incoming>,
+) -> Option<RequestingCredentials> {
+    extract_requesting_admin_session(request)
+        .map(RequestingCredentials::Admin)
+        .or_else(|| extract_requesting_participant(request).map(RequestingCredentials::Normal))
 }

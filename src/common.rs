@@ -45,35 +45,10 @@ pub fn get_cookie_value<'a>(cookie: &'a [u8], key: &[u8]) -> Option<&'a str> {
 pub fn extract_requesting_participant(
     request: &Request<hyper::body::Incoming>,
 ) -> Option<Participant> {
-    let Some(cookie) = &request.headers().get(COOKIE) else {
-        warn!("Missing cookie header in request.");
-        return None;
-    };
-
-    let Some(id_str) = get_cookie_value(cookie.as_bytes(), PARTICIPANT_ID_COOKIE_KEY.as_bytes())
-    else {
-        warn!(
-            "Missing id cookie in request. Cookie header: \"{:?}\"",
-            str::from_utf8(cookie.as_bytes())
-        );
-        return None;
-    };
-
-    let Ok(id) = id_str.parse() else {
-        warn!(
-            "Malformed id cookie in request. Cookie header: \"{:?}\"",
-            str::from_utf8(cookie.as_bytes())
-        );
-        return None;
-    };
-
-    let Some(token) = get_cookie_value(cookie.as_bytes(), TOKEN_COOKIE_KEY.as_bytes()) else {
-        warn!(
-            "Missing token cookie in request. Cookie header: \"{:?}\"",
-            str::from_utf8(cookie.as_bytes())
-        );
-        return None;
-    };
+    let cookie = &request.headers().get(COOKIE)?;
+    let id_str = get_cookie_value(cookie.as_bytes(), PARTICIPANT_ID_COOKIE_KEY.as_bytes())?;
+    let id = id_str.parse().ok()?;
+    let token = get_cookie_value(cookie.as_bytes(), TOKEN_COOKIE_KEY.as_bytes())?;
 
     Some(Participant {
         id,
@@ -84,35 +59,10 @@ pub fn extract_requesting_participant(
 pub fn extract_requesting_admin_session(
     request: &Request<hyper::body::Incoming>,
 ) -> Option<AdminSession> {
-    let Some(cookie) = &request.headers().get(COOKIE) else {
-        warn!("Missing cookie header in possibly admin request.");
-        return None;
-    };
-
-    let Some(id_str) = get_cookie_value(cookie.as_bytes(), ADMIN_SESSION_ID_COOKIE_KEY.as_bytes())
-    else {
-        warn!(
-            "Missing id cookie in possibly admin request. Cookie header: \"{:?}\"",
-            str::from_utf8(cookie.as_bytes())
-        );
-        return None;
-    };
-
-    let Ok(id) = id_str.parse() else {
-        warn!(
-            "Malformed id cookie in possibly admin request. Cookie header: \"{:?}\"",
-            str::from_utf8(cookie.as_bytes())
-        );
-        return None;
-    };
-
-    let Some(token) = get_cookie_value(cookie.as_bytes(), ADMIN_TOKEN_COOKIE_KEY.as_bytes()) else {
-        warn!(
-            "Missing token cookie in possibly admin request. Cookie header: \"{:?}\"",
-            str::from_utf8(cookie.as_bytes())
-        );
-        return None;
-    };
+    let cookie = &request.headers().get(COOKIE)?;
+    let id_str = get_cookie_value(cookie.as_bytes(), ADMIN_SESSION_ID_COOKIE_KEY.as_bytes())?;
+    let id = id_str.parse().ok()?;
+    let token = get_cookie_value(cookie.as_bytes(), ADMIN_TOKEN_COOKIE_KEY.as_bytes())?;
 
     Some(AdminSession {
         id,

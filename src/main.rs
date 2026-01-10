@@ -102,11 +102,14 @@ async fn handle_request(
         (&Method::POST, "/participants/add") => {
             participant::add(request, to_central_state_authority_sender).await
         }
+        (&Method::GET, "/participants/votes") => {
+            participant::get_votes(request, to_central_state_authority_sender).await
+        }
         (&Method::POST, "/elections/vote") => {
             election::vote(request, to_central_state_authority_sender).await
         }
         (&Method::GET, "/elections") => {
-            election::get(request, to_central_state_authority_sender).await
+            election::get_all(request, to_central_state_authority_sender).await
         }
         (&Method::POST, "/admin/start-session") => {
             admin::start_session(request, to_central_state_authority_sender).await

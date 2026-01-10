@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use http_body_util::{BodyExt, Full};
-use hyper::{Request, Response, body::Bytes};
+use hyper::{Request, Response};
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info, warn};
 
@@ -43,7 +43,7 @@ pub struct ElectionsVoteBody {
     pub selected_ballot_item_id: BallotItemId,
 }
 
-pub async fn get(
+pub async fn get_all(
     request: Request<hyper::body::Incoming>,
     to_central_state_authority_sender: mpsc::Sender<Message>,
 ) -> ResponseResult {
@@ -73,9 +73,7 @@ pub async fn get(
 
     match answer {
         Ok(body) => Response::builder().body(Full::new(body)),
-        Err(err) => Response::builder()
-            .status(err.http_status_code())
-            .body(Full::new(Bytes::from_owner(err.to_string()))),
+        Err(err) => err.to_response(),
     }
 }
 
@@ -83,7 +81,7 @@ pub async fn vote(
     request: Request<hyper::body::Incoming>,
     to_central_state_authority_sender: mpsc::Sender<Message>,
 ) -> ResponseResult {
-    let Some(requesting_participant) = extract_requesting_participant(&request) else {
+    let Some(requesting_participant_credentials) = extract_requesting_participant(&request) else {
         return unauthorized_response();
     };
 
@@ -110,7 +108,7 @@ pub async fn vote(
     if let Err(e) = to_central_state_authority_sender
         .send(Message::ElectionsVote {
             answer_sender,
-            requesting_participant,
+            requesting_participant_credentials,
             elections_vote_body: body,
         })
         .await
@@ -129,8 +127,6 @@ pub async fn vote(
 
     match answer {
         Ok(()) => ok_response(),
-        Err(err) => Response::builder()
-            .status(err.http_status_code())
-            .body(Full::new(Bytes::from_owner(err.to_string()))),
+        Err(err) => err.to_response(),
     }
 }

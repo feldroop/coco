@@ -1,7 +1,10 @@
-use hyper::StatusCode;
+use http_body_util::Full;
+use hyper::{Response, StatusCode, body::Bytes};
+
+use crate::common::ResponseResult;
 
 #[derive(Debug, thiserror::Error)]
-pub enum InvalidSessionError {
+pub enum InvalidCredentialsError {
     #[error("You need to log in first.")]
     Missing,
     #[error("The supplied login token for this participant is wrong.")]
@@ -10,20 +13,26 @@ pub enum InvalidSessionError {
     Unexpected,
 }
 
-impl InvalidSessionError {
+impl InvalidCredentialsError {
     pub fn http_status_code(&self) -> StatusCode {
         match self {
-            InvalidSessionError::Missing => StatusCode::UNAUTHORIZED,
-            InvalidSessionError::WrongToken => StatusCode::UNAUTHORIZED,
-            InvalidSessionError::Unexpected => StatusCode::INTERNAL_SERVER_ERROR,
+            InvalidCredentialsError::Missing => StatusCode::UNAUTHORIZED,
+            InvalidCredentialsError::WrongToken => StatusCode::UNAUTHORIZED,
+            InvalidCredentialsError::Unexpected => StatusCode::INTERNAL_SERVER_ERROR,
         }
+    }
+
+    pub fn to_response(&self) -> ResponseResult {
+        Response::builder()
+            .status(self.http_status_code())
+            .body(Full::new(Bytes::from_owner(self.to_string())))
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum ElectionsVoteError {
     #[error("{0}")]
-    InvalidParticipant(#[from] InvalidSessionError),
+    InvalidParticipant(#[from] InvalidCredentialsError),
     #[error("The election was deleted by the administrator.")]
     MissingElection,
     #[error("You already voted.")]
@@ -42,5 +51,11 @@ impl ElectionsVoteError {
             ElectionsVoteError::AlreadyVoted => StatusCode::FORBIDDEN,
             ElectionsVoteError::MissingBallotItem => StatusCode::NOT_FOUND,
         }
+    }
+
+    pub fn to_response(&self) -> ResponseResult {
+        Response::builder()
+            .status(self.http_status_code())
+            .body(Full::new(Bytes::from_owner(self.to_string())))
     }
 }

@@ -1,10 +1,9 @@
 use http_body_util::Full;
 use hyper::{Request, Response, StatusCode, body::Bytes, header::COOKIE};
-use tracing::warn;
 
 use crate::{
     admin::{ADMIN_SESSION_ID_COOKIE_KEY, ADMIN_TOKEN_COOKIE_KEY, AdminSession},
-    participant::{PARTICIPANT_ID_COOKIE_KEY, Participant, TOKEN_COOKIE_KEY},
+    participant::{PARTICIPANT_ID_COOKIE_KEY, ParticipantCredentials, TOKEN_COOKIE_KEY},
     state::RequestingCredentials,
 };
 
@@ -44,13 +43,13 @@ pub fn get_cookie_value<'a>(cookie: &'a [u8], key: &[u8]) -> Option<&'a str> {
 
 pub fn extract_requesting_participant(
     request: &Request<hyper::body::Incoming>,
-) -> Option<Participant> {
+) -> Option<ParticipantCredentials> {
     let cookie = &request.headers().get(COOKIE)?;
     let id_str = get_cookie_value(cookie.as_bytes(), PARTICIPANT_ID_COOKIE_KEY.as_bytes())?;
     let id = id_str.parse().ok()?;
     let token = get_cookie_value(cookie.as_bytes(), TOKEN_COOKIE_KEY.as_bytes())?;
 
-    Some(Participant {
+    Some(ParticipantCredentials {
         id,
         token: token.to_string(),
     })

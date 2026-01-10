@@ -6,21 +6,21 @@ if (!isLoggedIn) {
     window.location.href = '/admin/login'
 }
 
-var addBallotItemButton = document.getElementById('add-ballot-item')
-var ballotItemsListElement = document.getElementById('ballot-items')
-var ballotItemId = 0
+let addBallotItemButton = document.getElementById('add-ballot-item')
+let ballotItemsListElement = document.getElementById('ballot-items')
+let ballotItemId = 0
 
 addBallotItemButton?.addEventListener('click', (event) => {
     event.preventDefault()
 
-    var listItem = document.createElement('li')
+    let listItem = document.createElement('li')
     ballotItemsListElement?.appendChild(listItem)
 
-    var ballotItemInput = document.createElement('input')
+    let ballotItemInput = document.createElement('input')
     ballotItemInput.type = 'text'
     ballotItemInput.name = `ballot-item-${ballotItemId.toString()}`
 
-    var deleteBallotItemButton = document.createElement('button')
+    let deleteBallotItemButton = document.createElement('button')
     deleteBallotItemButton.innerText = 'Delete'
     deleteBallotItemButton.addEventListener('click', (event) => {
         event.preventDefault()
@@ -35,7 +35,7 @@ addBallotItemButton?.addEventListener('click', (event) => {
     ballotItemId += 1
 })
 
-var addElectionForm = document.getElementById('create-election-form')
+let addElectionForm = document.getElementById('create-election-form')
 
 addElectionForm?.addEventListener('submit', async (event) => {
     event.preventDefault()
@@ -43,13 +43,13 @@ addElectionForm?.addEventListener('submit', async (event) => {
     if (addElectionForm instanceof HTMLFormElement) {
         const createElectionData = new FormData(addElectionForm)
 
-        var createElectionDataObject = {
+        let createElectionDataObject = {
             name: createElectionData.get('name')?.toString(),
             ballotItems: [] as string[],
         }
 
         if (createElectionDataObject.name?.length === 0) {
-            var message = document.getElementById(
+            let message = document.getElementById(
                 'create-election-form-message'
             )
             if (message instanceof HTMLParagraphElement) {
@@ -63,9 +63,10 @@ addElectionForm?.addEventListener('submit', async (event) => {
                 const valueString = value.toString()
 
                 if (valueString.length === 0) {
-                    var message = document.getElementById(
+                    let message = document.getElementById(
                         'create-election-form-message'
                     )
+
                     if (message instanceof HTMLParagraphElement) {
                         message.textContent =
                             'Error: Ballot item name cannot be empty.'
@@ -87,18 +88,20 @@ addElectionForm?.addEventListener('submit', async (event) => {
 
         if (response.ok) {
             addElectionForm.reset()
-            var message = document.getElementById(
+            let message = document.getElementById(
                 'create-election-form-message'
             )
+
             if (message instanceof HTMLParagraphElement) {
                 message.textContent = 'Created election successfully.'
             }
         } else if (response.status === 401) {
             window.location.href = '/admin/login'
         } else {
-            var message = document.getElementById(
+            let message = document.getElementById(
                 'create-election-form-message'
             )
+
             if (message instanceof HTMLParagraphElement) {
                 message.textContent = 'Unexpected error: ' + response.status
             }
@@ -133,7 +136,7 @@ async function updateAndRenderElections() {
             const electionsById: Record<number, Election> =
                 await electionsResponse.json()
 
-            var electionsDiv = document.getElementById('elections')
+            let electionsDiv = document.getElementById('elections')
             electionsDiv?.replaceChildren()
 
             Object.entries(electionsById)
@@ -143,18 +146,20 @@ async function updateAndRenderElections() {
         } else if (electionsResponse.status === 401) {
             window.location.href = '/admin/login'
         } else {
-            var errorMessageElement = document.getElementById(
+            let errorMessageElement = document.getElementById(
                 'elections-error-message'
             )
+
             if (errorMessageElement instanceof HTMLParagraphElement) {
                 errorMessageElement.innerHTML =
                     'Unexpected error: ' + electionsResponse.status
             }
         }
     } catch (error) {
-        var errorMessageElement = document.getElementById(
+        let errorMessageElement = document.getElementById(
             'elections-error-message'
         )
+
         if (errorMessageElement instanceof HTMLParagraphElement) {
             errorMessageElement.innerHTML =
                 'Error: could not load election data.'
@@ -163,16 +168,16 @@ async function updateAndRenderElections() {
 }
 
 function createElectionDisplay(election: Election) {
-    var electionsDiv = document.getElementById('elections')
+    let electionsDiv = document.getElementById('elections')
 
     const electionFormId = `election-${election.id}`
 
-    var electionLabel = document.createElement('label')
+    let electionLabel = document.createElement('label')
     electionLabel.htmlFor = electionFormId
     electionLabel.textContent = election.name
     electionsDiv?.appendChild(electionLabel)
 
-    var electionForm = document.createElement('form')
+    let electionForm = document.createElement('form')
     electionForm.id = electionFormId
     electionsDiv?.appendChild(electionForm)
 
@@ -185,20 +190,20 @@ function createElectionDisplay(election: Election) {
         .forEach((ballotItem) => {
             const ballotItemInputId = `election-${election.id}-ballot-item-${ballotItem.id}`
 
-            var ballotItemInput = document.createElement('input')
+            let ballotItemInput = document.createElement('input')
             ballotItemInput.type = 'radio'
             ballotItemInput.id = ballotItemInputId
             ballotItemInput.value = ballotItem.id.toString()
             ballotItemInput.name = radioButtonGroupName
             ballotItemInput.addEventListener('change', () => {
-                var submitButton = document.getElementById(submitButtonId)
+                let submitButton = document.getElementById(submitButtonId)
 
                 if (submitButton instanceof HTMLInputElement) {
                     submitButton.disabled = false
                 }
             })
 
-            var label = document.createElement('label')
+            let label = document.createElement('label')
             label.textContent = ballotItem.name
             label.htmlFor = ballotItemInputId
 
@@ -207,7 +212,7 @@ function createElectionDisplay(election: Election) {
             electionForm.appendChild(document.createElement('br'))
         })
 
-    var electionIdHiddenInput = document.createElement('input')
+    let electionIdHiddenInput = document.createElement('input')
     electionIdHiddenInput.type = 'hidden'
     electionIdHiddenInput.name = 'election-id'
     electionIdHiddenInput.value = election.id.toString()

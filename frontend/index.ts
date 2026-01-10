@@ -33,7 +33,7 @@ async function updateAndRenderElections() {
             const electionsById: Record<number, Election> =
                 await electionsResponse.json()
 
-            var electionsDiv = document.getElementById('elections')
+            let electionsDiv = document.getElementById('elections')
             electionsDiv?.replaceChildren()
 
             Object.entries(electionsById)
@@ -43,7 +43,7 @@ async function updateAndRenderElections() {
         } else if (electionsResponse.status === 401) {
             window.location.href = '/login'
         } else {
-            var errorMessageElement = document.getElementById(
+            let errorMessageElement = document.getElementById(
                 'elections-error-message'
             )
             if (errorMessageElement instanceof HTMLParagraphElement) {
@@ -52,7 +52,7 @@ async function updateAndRenderElections() {
             }
         }
     } catch (error) {
-        var errorMessageElement = document.getElementById(
+        let errorMessageElement = document.getElementById(
             'elections-error-message'
         )
         if (errorMessageElement instanceof HTMLParagraphElement) {
@@ -63,16 +63,16 @@ async function updateAndRenderElections() {
 }
 
 function createElectionForm(election: Election) {
-    var electionsDiv = document.getElementById('elections')
+    let electionsDiv = document.getElementById('elections')
 
     const electionFormId = `election-${election.id}`
 
-    var electionLabel = document.createElement('label')
+    let electionLabel = document.createElement('label')
     electionLabel.htmlFor = electionFormId
     electionLabel.textContent = election.name
     electionsDiv?.appendChild(electionLabel)
 
-    var electionForm = document.createElement('form')
+    let electionForm = document.createElement('form')
     electionForm.id = electionFormId
     electionsDiv?.appendChild(electionForm)
 
@@ -85,20 +85,20 @@ function createElectionForm(election: Election) {
         .forEach((ballotItem) => {
             const ballotItemInputId = `election-${election.id}-ballot-item-${ballotItem.id}`
 
-            var ballotItemInput = document.createElement('input')
+            let ballotItemInput = document.createElement('input')
             ballotItemInput.type = 'radio'
             ballotItemInput.id = ballotItemInputId
             ballotItemInput.value = ballotItem.id.toString()
             ballotItemInput.name = radioButtonGroupName
             ballotItemInput.addEventListener('change', () => {
-                var submitButton = document.getElementById(submitButtonId)
+                let submitButton = document.getElementById(submitButtonId)
 
                 if (submitButton instanceof HTMLInputElement) {
                     submitButton.disabled = false
                 }
             })
 
-            var label = document.createElement('label')
+            let label = document.createElement('label')
             label.textContent = ballotItem.name
             label.htmlFor = ballotItemInputId
 
@@ -107,21 +107,21 @@ function createElectionForm(election: Election) {
             electionForm.appendChild(document.createElement('br'))
         })
 
-    var electionIdHiddenInput = document.createElement('input')
+    let electionIdHiddenInput = document.createElement('input')
     electionIdHiddenInput.type = 'hidden'
     electionIdHiddenInput.name = 'election-id'
     electionIdHiddenInput.value = election.id.toString()
     electionForm.appendChild(electionIdHiddenInput)
 
-    var submitButton = document.createElement('input')
+    let submitButton = document.createElement('input')
     submitButton.id = submitButtonId
     submitButton.type = 'submit'
     submitButton.value = 'Submit'
     submitButton.disabled = true
     electionForm.appendChild(submitButton)
 
-    var electionMessageElementId = `election-${election.id}-message`
-    var electionMessageElement = document.createElement('p')
+    let electionMessageElementId = `election-${election.id}-message`
+    let electionMessageElement = document.createElement('p')
     electionMessageElement.id = electionMessageElementId
     electionForm.appendChild(electionMessageElement)
 
@@ -147,13 +147,13 @@ function createElectionForm(election: Election) {
             const inputElements = electionForm.querySelectorAll(
                 'input'
             ) as NodeListOf<HTMLInputElement>
-            for (var inputElement of inputElements.values()) {
+            for (let inputElement of inputElements.values()) {
                 inputElement.disabled = true
             }
         }
 
         if (response.ok) {
-            var errorMessageElement = document.getElementById(
+            let errorMessageElement = document.getElementById(
                 electionMessageElementId
             )
             if (errorMessageElement instanceof HTMLParagraphElement) {
@@ -162,7 +162,7 @@ function createElectionForm(election: Election) {
         } else if (response.status === 401) {
             window.location.href = '/login'
         } else if ([403, 404, 500].includes(response.status)) {
-            var errorMessageElement = document.getElementById(
+            let errorMessageElement = document.getElementById(
                 electionMessageElementId
             )
             if (errorMessageElement instanceof HTMLParagraphElement) {
@@ -170,7 +170,7 @@ function createElectionForm(election: Election) {
                 errorMessageElement.innerHTML = 'Error: ' + responseText
             }
         } else if (!response.ok) {
-            var errorMessageElement = document.getElementById(
+            let errorMessageElement = document.getElementById(
                 electionMessageElementId
             )
             if (errorMessageElement instanceof HTMLParagraphElement) {

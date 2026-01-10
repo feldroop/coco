@@ -13,14 +13,14 @@ form?.addEventListener('submit', async (event) => {
     })
 
     if (response.status === 401) {
-        var errorMessageElement = document.getElementById(
+        let errorMessageElement = document.getElementById(
             'admin-login-form-error-message'
         )
         if (errorMessageElement instanceof HTMLParagraphElement) {
             errorMessageElement.innerHTML = 'Wrong password.'
         }
     } else if (!response.ok) {
-        var errorMessageElement = document.getElementById(
+        let errorMessageElement = document.getElementById(
             'admin-login-form-error-message'
         )
         if (errorMessageElement instanceof HTMLParagraphElement) {
